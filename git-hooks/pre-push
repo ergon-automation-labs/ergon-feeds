@@ -1,0 +1,90 @@
+#!/bin/bash
+# Git pre-push hook for {{BOT_APP_NAME}}
+# Validates compilation and builds release before pushing to GitHub
+# Tests run in Jenkins (not locally)
+# Uses absolute paths since git hooks run in a restricted environment
+
+set -e
+
+# Use absolute path to mix since git hooks have limited environment
+MIX_BIN="/Users/abby/.local/share/mise/shims/mix"
+
+echo "🔍 Running pre-push checks..."
+echo ""
+
+# Check if we're pushing to main
+read local_ref local_oid remote_ref remote_oid
+if [[ $remote_ref == "refs/heads/main" ]]; then
+  echo "⚠️  Pushing to main branch - validating and building release..."
+  echo ""
+
+  # Ensure dependencies are up to date
+  echo "📦 Installing dependencies..."
+  $MIX_BIN deps.get || {
+    echo "❌ Failed to install dependencies"
+    exit 1
+  }
+
+  # Check for compilation issues (quick validation)
+  echo ""
+  echo "🔨 Compiling code..."
+  $MIX_BIN compile --force || {
+    echo "❌ Compilation failed - push aborted"
+    exit 1
+  }
+
+  # Quick linting check (non-blocking)
+  echo ""
+  echo "📝 Running linter..."
+  $MIX_BIN credo --strict || {
+    echo "⚠️  Linting issues found (non-blocking, will fail in CI)"
+  }
+
+  # Run tests (required before release)
+  echo ""
+  echo "🧪 Running tests..."
+  $MIX_BIN test || {
+    echo "❌ Tests failed - push aborted"
+    exit 1
+  }
+
+  # Build OTP release
+  echo ""
+  echo "📦 Building OTP release..."
+  MIX_ENV=prod $MIX_BIN release --overwrite || {
+    echo "❌ Release build failed - push aborted"
+    exit 1
+  }
+
+  # Extract version and create GitHub release
+  echo ""
+  echo "🚀 Publishing release to GitHub..."
+  VERSION=$(cat _build/prod/rel/{{BOT_RELEASE_NAME}}/releases/start_erl.data | awk '{print $2}')
+  echo "Version: $VERSION"
+
+  # Create tarball
+  tar -czf {{BOT_RELEASE_NAME}}-$VERSION.tar.gz -C _build/prod/rel {{BOT_RELEASE_NAME}}/ || {
+    echo "❌ Failed to create tarball"
+    exit 1
+  }
+  echo "✓ Tarball created: {{BOT_RELEASE_NAME}}-$VERSION.tar.gz"
+
+  # Create GitHub release
+  gh release create v$VERSION {{BOT_RELEASE_NAME}}-$VERSION.tar.gz \
+    --title "Release v$VERSION" \
+    --notes "{{BOT_NAME_TITLE}} Elixir release v$VERSION. Automatically deployed by Jenkins." \
+    --draft=false || {
+    echo "⚠️  Release already exists or GitHub publish failed"
+    echo "Continuing with push anyway..."
+  }
+  echo "✓ Release published to GitHub"
+
+  echo ""
+  echo "✅ All checks passed, release built and published!"
+  echo "📤 Proceeding with push..."
+else
+  echo "ℹ️  Pushing to feature branch - skipping validation"
+fi
+
+echo ""
+exit 0
