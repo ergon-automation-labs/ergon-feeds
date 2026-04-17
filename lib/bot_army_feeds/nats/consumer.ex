@@ -65,15 +65,17 @@ defmodule BotArmyFeeds.NATS.Consumer do
 
   @impl true
   def handle_info({:msg, msg}, state) do
-    decoded = BotArmyCore.NATS.Decoder.decode(msg.body)
+    BotArmyRuntime.Tracing.with_consumer_span(msg.topic, msg.headers, fn ->
+      decoded = BotArmyCore.NATS.Decoder.decode(msg.body)
 
-    case decoded do
-      {:ok, payload} ->
-        route_message(payload, msg.reply_to, state)
+      case decoded do
+        {:ok, payload} ->
+          route_message(payload, msg.reply_to, state)
 
-      {:error, reason} ->
-        Logger.warning("Failed to decode NATS message: #{inspect(reason)}")
-    end
+        {:error, reason} ->
+          Logger.warning("Failed to decode NATS message: #{inspect(reason)}")
+      end
+    end)
 
     {:noreply, state}
   end
