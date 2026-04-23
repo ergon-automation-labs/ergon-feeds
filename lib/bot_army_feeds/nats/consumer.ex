@@ -65,7 +65,7 @@ defmodule BotArmyFeeds.NATS.Consumer do
 
   @impl true
   def handle_info({:msg, msg}, state) do
-    BotArmyRuntime.Tracing.with_consumer_span(msg.topic, msg.headers, fn ->
+    BotArmyRuntime.Tracing.with_consumer_span(msg.topic, Map.get(msg, :headers, []), fn ->
       decoded = BotArmyCore.NATS.Decoder.decode(msg.body)
 
       case decoded do
