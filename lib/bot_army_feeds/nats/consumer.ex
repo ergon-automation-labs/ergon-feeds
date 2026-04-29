@@ -23,6 +23,18 @@ defmodule BotArmyFeeds.NATS.Consumer do
   alias BotArmyFeeds.Handlers.ResearchHandler
   alias BotArmyRuntime.NATS.Connection
 
+  @version Mix.Project.config()[:version]
+  @registry_heartbeat_ms 20_000
+
+  @subjects [
+    %{subject: "feeds.feed.add", type: :subscribe, description: "Add feed"},
+    %{subject: "feeds.feed.remove", type: :subscribe, description: "Remove feed"},
+    %{subject: "feeds.feed.update", type: :subscribe, description: "Update feed"},
+    %{subject: "feeds.feed.list", type: :request_reply, description: "List feeds"},
+    %{subject: "feeds.poll", type: :subscribe, description: "Poll feeds"},
+    %{subject: "events.llm.response.parsed", type: :subscribe, description: "LLM response parsed"}
+  ]
+
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -48,6 +60,8 @@ defmodule BotArmyFeeds.NATS.Consumer do
         ]
 
         Logger.info("Subscribed to feed management subjects")
+        BotArmyRuntime.Registry.register("feeds", @subjects, @version)
+        Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
 
         {:ok,
          %{
@@ -198,4 +212,14 @@ defmodule BotArmyFeeds.NATS.Consumer do
       {:error, reason} -> Logger.warning("Failed to send reply: #{inspect(reason)}")
     end
   end
+  @impl true
+  def handle_info(:registry_heartbeat, state) do
+    if length(state.subscriptions) > 0 do
+      BotArmyRuntime.Registry.register("feeds", @subjects, @version)
+      Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
+    end
+
+    {:noreply, state}
+  end
+
 end
