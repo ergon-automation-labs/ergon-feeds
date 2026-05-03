@@ -1,6 +1,6 @@
 SCRIPTS_DIRECTORY ?= $(abspath $(CURDIR)/../scripts)
 
-.PHONY: setup help deps test credo dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs feeds
+.PHONY: setup help deps test credo dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs feeds push-and-publish
 
 help:
 	@echo "bot_army_feeds"
@@ -29,12 +29,13 @@ help:
 	@echo "  make remove-feed URL=... - Remove a feed"
 	@echo "  make poll-feeds      - Trigger immediate feed poll"
 	@echo ""
-	@echo "Release commands (normally automatic via git hook):"
-	@echo "  make release         - Build OTP release locally (manual, if needed)"
-	@echo "  make publish-release - Build, package, and publish to GitHub (manual, if needed)"
+	@echo "Release commands:"
+	@echo "  make release         - Build OTP release locally"
+	@echo "  make publish-release - Build, package, and publish to GitHub"
 	@echo ""
 	@echo "Normal workflow:"
-	@echo "  git push             - Pre-push hook validates, builds, and publishes automatically"
+	@echo "  git push             - Fast compile+test validation"
+	@echo "  make push-and-publish - Push then publish release asset"
 
 setup: init deps setup-hooks setup-db
 	@echo "✓ Setup complete!"
@@ -121,6 +122,9 @@ publish-release: release
 		--draft=false; \
 	echo "✓ Release published to GitHub"; \
 	echo ""
+
+push-and-publish:
+	@git push && $(MAKE) publish-release
 
 logs:
 	@$(SCRIPTS_DIRECTORY)/tail_bot_log.sh
