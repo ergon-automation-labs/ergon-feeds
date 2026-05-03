@@ -94,6 +94,17 @@ defmodule BotArmyFeeds.NATS.Consumer do
     {:noreply, state}
   end
 
+  @impl true
+  def handle_info(:registry_heartbeat, state) do
+    if length(state.subscriptions) > 0 do
+      BotArmyRuntime.Registry.register("feeds", @subjects, @version)
+      Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
+    end
+
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(_msg, state) do
     {:noreply, state}
   end
@@ -212,14 +223,4 @@ defmodule BotArmyFeeds.NATS.Consumer do
       {:error, reason} -> Logger.warning("Failed to send reply: #{inspect(reason)}")
     end
   end
-  @impl true
-  def handle_info(:registry_heartbeat, state) do
-    if length(state.subscriptions) > 0 do
-      BotArmyRuntime.Registry.register("feeds", @subjects, @version)
-      Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
-    end
-
-    {:noreply, state}
-  end
-
 end
