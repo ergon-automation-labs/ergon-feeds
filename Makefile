@@ -95,7 +95,8 @@ release: check
 	@echo "==============================================="
 	@echo "Building OTP release"
 	@echo "==============================================="
-	MIX_ENV=prod mix release --overwrite
+	rm -rf _build/prod/rel/rss_polling
+	MIX_ENV=prod mix release
 	@echo ""
 	@echo "✓ Release built successfully"
 	@echo "Location: _build/prod/rel/rss_polling/"
