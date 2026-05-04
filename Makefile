@@ -104,27 +104,29 @@ release: check
 	@echo ""
 
 publish-release: release
-	@echo "==============================================="
-	@echo "Publishing release to GitHub"
-	@echo "==============================================="
-	@echo ""
-
-	VERSION=$$(cat _build/prod/rel/rss_polling/releases/RELEASES | tail -1 | cut -d' ' -f2); \
+	@set -e; \
+	VERSION=$$(sed -n 's/^[[:space:]]*version:[[:space:]]*"\([^"]*\)".*/\1/p' mix.exs | head -n 1); \
+	if [ -z "$$VERSION" ]; then \
+		echo "Failed to resolve version from mix.exs"; \
+		exit 1; \
+	fi; \
+	TARBALL=rss_polling-$$VERSION.tar.gz; \
 	echo "Version: $$VERSION"; \
-	\
 	echo "Creating release tarball..."; \
-	tar -czf rss_polling-$$VERSION.tar.gz -C _build/prod/rel rss_polling/; \
-	echo "✓ Tarball created: rss_polling-$$VERSION.tar.gz"; \
+	tar -czf "$$TARBALL" -C _build/prod/rel rss_polling/; \
+	echo "✓ Tarball created: $$TARBALL"; \
 	echo ""; \
-	\
 	echo "Creating GitHub release v$$VERSION..."; \
-	gh release create v$$VERSION rss_polling-$$VERSION.tar.gz \
-		--title "Release rss_polling v$$VERSION" \
-		--notes "bot_army_feeds Elixir release v$$VERSION. Download and deploy with Jenkins." \
-		--draft=false; \
+	if gh release view "v$$VERSION" >/dev/null 2>&1; then \
+		gh release upload "v$$VERSION" "$$TARBALL" --clobber; \
+	else \
+		gh release create "v$$VERSION" "$$TARBALL" \
+			--title "Release v$$VERSION" \
+			--notes "Feeds Bot Elixir release v$$VERSION. Download and deploy with Jenkins." \
+			--draft=false; \
+	fi; \
 	echo "✓ Release published to GitHub"; \
-	echo ""
-
+	echo "" 
 push-and-publish:
 	@git push && $(MAKE) publish-release
 
