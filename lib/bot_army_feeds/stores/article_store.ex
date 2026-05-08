@@ -72,6 +72,12 @@ defmodule BotArmyFeeds.Stores.ArticleStore do
   def list_needing_research, do: GenServer.call(__MODULE__, :list_needing_research)
 
   @doc """
+  List recent articles (last N hours, up to limit).
+  """
+  def list_recent(hours \\ 48, limit \\ 20),
+    do: GenServer.call(__MODULE__, {:list_recent, hours, limit})
+
+  @doc """
   Mark an article as seen by GUID (returns :ok or :error if already exists).
   """
   def mark_seen(feed_id, guid), do: GenServer.call(__MODULE__, {:mark_seen, feed_id, guid})
@@ -155,6 +161,21 @@ defmodule BotArmyFeeds.Stores.ArticleStore do
     articles =
       state.articles
       |> Enum.filter(&(Map.get(&1, :research_status) in [:pending, :processing]))
+
+    {:reply, {:ok, articles}, state}
+  end
+
+  def handle_call({:list_recent, hours, limit}, _from, state) do
+    cutoff = DateTime.add(DateTime.utc_now(), -hours, :hour)
+
+    articles =
+      state.articles
+      |> Enum.sort_by(&Map.get(&1, :inserted_at), {:desc, DateTime})
+      |> Enum.filter(fn article ->
+        inserted_at = Map.get(article, :inserted_at)
+        is_struct(inserted_at, DateTime) and DateTime.compare(inserted_at, cutoff) != :lt
+      end)
+      |> Enum.take(limit)
 
     {:reply, {:ok, articles}, state}
   end

@@ -31,6 +31,7 @@ defmodule BotArmyFeeds.NATS.Consumer do
     %{subject: "feeds.feed.remove", type: :subscribe, description: "Remove feed"},
     %{subject: "feeds.feed.update", type: :subscribe, description: "Update feed"},
     %{subject: "feeds.feed.list", type: :request_reply, description: "List feeds"},
+    %{subject: "feeds.article.list", type: :request_reply, description: "List recent articles"},
     %{subject: "feeds.poll", type: :subscribe, description: "Poll feeds"},
     %{subject: "events.llm.response.parsed", type: :subscribe, description: "LLM response parsed"}
   ]
@@ -55,6 +56,7 @@ defmodule BotArmyFeeds.NATS.Consumer do
           {Gnat.sub(conn, self(), "feeds.feed.remove"), :feed_remove},
           {Gnat.sub(conn, self(), "feeds.feed.update"), :feed_update},
           {Gnat.sub(conn, self(), "feeds.feed.list"), :feed_list},
+          {Gnat.sub(conn, self(), "feeds.article.list"), :article_list},
           {Gnat.sub(conn, self(), "feeds.poll"), :poll},
           {Gnat.sub(conn, self(), "events.llm.response.parsed"), :llm_response}
         ]
@@ -161,6 +163,31 @@ defmodule BotArmyFeeds.NATS.Consumer do
     reply = %{
       "ok" => true,
       "feeds" => Enum.map(feeds, &feed_to_map/1)
+    }
+
+    send_reply(reply_to, reply)
+  end
+
+  defp route_message(%{"event" => "feeds.article.list"} = payload, reply_to, _state) do
+    hours = Map.get(payload, "hours", 48)
+    limit = Map.get(payload, "limit", 20)
+
+    {:ok, articles} = BotArmyFeeds.Stores.ArticleStore.list_recent(hours, limit)
+
+    reply = %{
+      "ok" => true,
+      "articles" =>
+        Enum.map(articles, fn article ->
+          %{
+            "id" => article.id,
+            "title" => article.title,
+            "url" => article.url,
+            "description" => article.description,
+            "published_at" => article.published_at,
+            "feed_id" => article.feed_id,
+            "inserted_at" => article.inserted_at
+          }
+        end)
     }
 
     send_reply(reply_to, reply)
