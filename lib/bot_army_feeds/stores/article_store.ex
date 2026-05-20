@@ -129,11 +129,13 @@ defmodule BotArmyFeeds.Stores.ArticleStore do
         {:reply, {:error, :not_found}, state}
 
       _ ->
-        with {:ok, article} <- update_article(article_id, attrs) do
-          new_state = %{state | articles: Map.put(state.articles, article_id, article)}
-          {:reply, {:ok, article}, new_state}
-        else
-          error -> {:reply, error, state}
+        case update_article(article_id, attrs) do
+          {:ok, article} ->
+            new_state = %{state | articles: Map.put(state.articles, article_id, article)}
+            {:reply, {:ok, article}, new_state}
+
+          error ->
+            {:reply, error, state}
         end
     end
   end
@@ -144,17 +146,18 @@ defmodule BotArmyFeeds.Stores.ArticleStore do
         {:reply, {:error, :not_found}, state}
 
       _ ->
-        with {:ok, article} <-
-               Article
-               |> Ecto.Changeset.change(%{
-                 research_status: status,
-                 research_notes: notes
-               })
-               |> Repo.update() do
-          new_state = %{state | articles: Map.put(state.articles, article_id, article)}
-          {:reply, {:ok, article}, new_state}
-        else
-          error -> {:reply, error, state}
+        case Article
+             |> Ecto.Changeset.change(%{
+               research_status: status,
+               research_notes: notes
+             })
+             |> Repo.update() do
+          {:ok, article} ->
+            new_state = %{state | articles: Map.put(state.articles, article_id, article)}
+            {:reply, {:ok, article}, new_state}
+
+          error ->
+            {:reply, error, state}
         end
     end
   end

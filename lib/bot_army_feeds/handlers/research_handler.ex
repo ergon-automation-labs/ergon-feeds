@@ -6,8 +6,8 @@ defmodule BotArmyFeeds.Handlers.ResearchHandler do
   interesting research angles from RSS feed articles.
   """
 
-  alias BotArmyFeeds.Stores.{ArticleStore, FeedStore}
   alias BotArmyFeeds.NATS.Publisher
+  alias BotArmyFeeds.Stores.{ArticleStore, FeedStore}
 
   @doc """
   Request research on an article.

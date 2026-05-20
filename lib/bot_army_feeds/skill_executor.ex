@@ -5,8 +5,8 @@ defmodule BotArmyFeeds.SkillExecutor do
 
   require Logger
 
-  alias BotArmyFeeds.SkillDefinition
   alias BotArmyFeeds.NATS.Publisher
+  alias BotArmyFeeds.SkillDefinition
 
   @spec render_template(template :: String.t(), payload :: map()) :: String.t()
   def render_template(template, payload) when is_binary(template) and is_map(payload) do
@@ -26,14 +26,12 @@ defmodule BotArmyFeeds.SkillExecutor do
   end
 
   defp resolve_path(path_parts, payload) do
-    try do
-      case get_in(payload, path_parts) do
-        nil -> ""
-        value when is_binary(value) -> value
-        value -> inspect(value)
-      end
-    rescue
-      _ -> ""
+    case get_in(payload, path_parts) do
+      nil -> ""
+      value when is_binary(value) -> value
+      value -> inspect(value)
     end
+  rescue
+    _ -> ""
   end
 end

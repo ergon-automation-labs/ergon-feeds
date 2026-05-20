@@ -11,14 +11,16 @@ defmodule BotArmyFeeds.Handlers.FeedHandler do
   Handle list feeds request.
   """
   def handle_list_feeds do
-    with {:ok, feeds} <- FeedStore.list() do
-      {:ok,
-       %{
-         "ok" => true,
-         "feeds" => Enum.map(feeds, &feed_to_map/1)
-       }}
-    else
-      error -> {:error, %{message: "Failed to list feeds", details: inspect(error)}}
+    case FeedStore.list() do
+      {:ok, feeds} ->
+        {:ok,
+         %{
+           "ok" => true,
+           "feeds" => Enum.map(feeds, &feed_to_map/1)
+         }}
+
+      error ->
+        {:error, %{message: "Failed to list feeds", details: inspect(error)}}
     end
   end
 
@@ -26,14 +28,15 @@ defmodule BotArmyFeeds.Handlers.FeedHandler do
   Handle add feed request.
   """
   def handle_add_feed(attrs) when is_map(attrs) do
-    with {:ok, feed} <- FeedStore.create(attrs) do
-      {:ok,
-       %{
-         "ok" => true,
-         "feed_id" => feed.id,
-         "message" => "Feed added successfully"
-       }}
-    else
+    case FeedStore.create(attrs) do
+      {:ok, feed} ->
+        {:ok,
+         %{
+           "ok" => true,
+           "feed_id" => feed.id,
+           "message" => "Feed added successfully"
+         }}
+
       {:error, changeset} ->
         {:error,
          %{
@@ -89,14 +92,15 @@ defmodule BotArmyFeeds.Handlers.FeedHandler do
   def handle_update_feed(feed_id, attrs) when is_map(attrs) do
     case FeedStore.get(feed_id) do
       {:ok, _feed} ->
-        with {:ok, updated} <- FeedStore.update(feed_id, attrs) do
-          {:ok,
-           %{
-             "ok" => true,
-             "feed" => feed_to_map(updated),
-             "message" => "Feed updated"
-           }}
-        else
+        case FeedStore.update(feed_id, attrs) do
+          {:ok, updated} ->
+            {:ok,
+             %{
+               "ok" => true,
+               "feed" => feed_to_map(updated),
+               "message" => "Feed updated"
+             }}
+
           error ->
             {:error,
              %{

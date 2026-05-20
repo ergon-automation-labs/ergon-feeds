@@ -9,7 +9,9 @@ defmodule BotArmyFeeds.Poller do
   use GenServer
   require Logger
 
-  alias BotArmyFeeds.{Stores.FeedStore, Stores.ArticleStore, NATS.Publisher}
+  alias BotArmyFeeds.NATS.Publisher
+  alias BotArmyFeeds.Stores.ArticleStore
+  alias BotArmyFeeds.Stores.FeedStore
   import SweetXml
 
   # 15 minutes
@@ -52,43 +54,47 @@ defmodule BotArmyFeeds.Poller do
   end
 
   defp poll_feeds do
-    try do
-      feeds = FeedStore.list() |> elem(1)
-      Logger.info("Polling #{length(feeds)} RSS feeds")
+    feeds = FeedStore.list() |> elem(1)
+    Logger.info("Polling #{length(feeds)} RSS feeds")
 
-      Enum.each(feeds, &poll_feed/1)
-    rescue
-      error ->
-        Logger.error("Error polling RSS feeds: #{inspect(error)}")
-    end
+    Enum.each(feeds, &poll_feed/1)
+  rescue
+    error ->
+      Logger.error("Error polling RSS feeds: #{inspect(error)}")
   end
 
   defp poll_feed(feed) do
-    unless feed.enabled do
+    if feed.enabled do
+      do_poll_feed(feed)
+    else
       Logger.debug("Skipping disabled feed: #{feed.name}")
       :ok
-    else
-      case fetch_feed(feed.url) do
-        {:ok, items} ->
-          Logger.info("Fetched #{length(items)} items from #{feed.name} (#{feed.url})")
-
-          items
-          |> Enum.filter(fn item ->
-            # Check if article with this GUID already exists for this feed
-            case ArticleStore.mark_seen(feed.id, item["guid"]) do
-              :ok -> true
-              {:error, :already_exists} -> false
-            end
-          end)
-          |> Enum.each(fn item ->
-            handle_new_item(item, feed)
-          end)
-
-        {:error, reason} ->
-          Logger.warning("RSS poll failed for #{feed.name} (#{feed.url}): #{inspect(reason)}")
-          update_error_count(feed.id)
-      end
     end
+  end
+
+  defp do_poll_feed(feed) do
+    case fetch_feed(feed.url) do
+      {:ok, items} ->
+        Logger.info("Fetched #{length(items)} items from #{feed.name} (#{feed.url})")
+        process_feed_items(items, feed)
+
+      {:error, reason} ->
+        Logger.warning("RSS poll failed for #{feed.name} (#{feed.url}): #{inspect(reason)}")
+        update_error_count(feed.id)
+    end
+  end
+
+  defp process_feed_items(items, feed) do
+    items
+    |> Enum.filter(fn item ->
+      case ArticleStore.mark_seen(feed.id, item["guid"]) do
+        :ok -> true
+        {:error, :already_exists} -> false
+      end
+    end)
+    |> Enum.each(fn item ->
+      handle_new_item(item, feed)
+    end)
   end
 
   defp fetch_feed(url) do

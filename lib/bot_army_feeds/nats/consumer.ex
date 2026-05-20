@@ -19,9 +19,14 @@ defmodule BotArmyFeeds.NATS.Consumer do
   use GenServer
   require Logger
 
-  alias BotArmyFeeds.Stores.FeedStore
+  alias BotArmyCore.NATS.Decoder
   alias BotArmyFeeds.Handlers.ResearchHandler
+  alias BotArmyFeeds.Stores.ArticleStore
+  alias BotArmyFeeds.Stores.FeedStore
   alias BotArmyRuntime.NATS.Connection
+  alias BotArmyRuntime.NATS.Publisher
+  alias BotArmyRuntime.Registry
+  alias BotArmyRuntime.Tracing
 
   @version Mix.Project.config()[:version]
   @registry_heartbeat_ms 20_000
@@ -62,7 +67,7 @@ defmodule BotArmyFeeds.NATS.Consumer do
         ]
 
         Logger.info("Subscribed to feed management subjects")
-        BotArmyRuntime.Registry.register("feeds", @subjects, @version)
+        Registry.register("feeds", @subjects, @version)
         Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
 
         {:ok,
@@ -81,8 +86,8 @@ defmodule BotArmyFeeds.NATS.Consumer do
 
   @impl true
   def handle_info({:msg, msg}, state) do
-    BotArmyRuntime.Tracing.with_consumer_span(msg.topic, Map.get(msg, :headers, []), fn ->
-      decoded = BotArmyCore.NATS.Decoder.decode(msg.body)
+    Tracing.with_consumer_span(msg.topic, Map.get(msg, :headers, []), fn ->
+      decoded = Decoder.decode(msg.body)
 
       case decoded do
         {:ok, payload} ->
@@ -99,7 +104,7 @@ defmodule BotArmyFeeds.NATS.Consumer do
   @impl true
   def handle_info(:registry_heartbeat, state) do
     if state.subscriptions != [] do
-      BotArmyRuntime.Registry.register("feeds", @subjects, @version)
+      Registry.register("feeds", @subjects, @version)
       Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
     end
 
@@ -113,11 +118,12 @@ defmodule BotArmyFeeds.NATS.Consumer do
 
   # Message routing with reply_to
   defp route_message(%{"event" => "feeds.feed.add"} = payload, reply_to, _state) do
-    with {:ok, feed} <- FeedStore.create(payload) do
-      publish_feed_event("feed.added", feed)
-      Logger.info("Added feed: #{feed.name}")
-      send_reply(reply_to, %{ok: true, message: "Feed added"})
-    else
+    case FeedStore.create(payload) do
+      {:ok, feed} ->
+        publish_feed_event("feed.added", feed)
+        Logger.info("Added feed: #{feed.name}")
+        send_reply(reply_to, %{ok: true, message: "Feed added"})
+
       {:error, _} = error ->
         Logger.warning("Failed to add feed: #{inspect(error)}")
         send_reply(reply_to, %{ok: false, message: "Failed to add feed"})
@@ -127,12 +133,13 @@ defmodule BotArmyFeeds.NATS.Consumer do
   defp route_message(%{"event" => "feeds.feed.remove"} = payload, reply_to, _state) do
     url = Map.get(payload, "url")
 
-    with {:ok, feed} <- FeedStore.get_by_url(url) |> elem(1) do
-      FeedStore.remove(feed.id)
-      publish_feed_event("feed.removed", feed)
-      Logger.info("Removed feed: #{feed.name}")
-      send_reply(reply_to, %{ok: true, message: "Feed removed"})
-    else
+    case FeedStore.get_by_url(url) |> elem(1) do
+      {:ok, feed} ->
+        FeedStore.remove(feed.id)
+        publish_feed_event("feed.removed", feed)
+        Logger.info("Removed feed: #{feed.name}")
+        send_reply(reply_to, %{ok: true, message: "Feed removed"})
+
       :error ->
         Logger.warning("Feed not found for removal: #{url}")
         send_reply(reply_to, %{ok: false, message: "Feed not found"})
@@ -142,15 +149,21 @@ defmodule BotArmyFeeds.NATS.Consumer do
   defp route_message(%{"event" => "feeds.feed.update"} = payload, reply_to, _state) do
     url = Map.get(payload, "url")
 
-    with {:ok, feed} <- FeedStore.get_by_url(url) |> elem(1) do
-      attrs = Map.delete(payload, "url")
+    case FeedStore.get_by_url(url) |> elem(1) do
+      {:ok, feed} ->
+        attrs = Map.delete(payload, "url")
 
-      with {:ok, updated} <- FeedStore.update(feed.id, attrs) do
-        publish_feed_event("feed.updated", updated)
-        Logger.info("Updated feed: #{feed.name}")
-        send_reply(reply_to, %{ok: true, message: "Feed updated"})
-      end
-    else
+        case FeedStore.update(feed.id, attrs) do
+          {:ok, updated} ->
+            publish_feed_event("feed.updated", updated)
+            Logger.info("Updated feed: #{feed.name}")
+            send_reply(reply_to, %{ok: true, message: "Feed updated"})
+
+          {:error, _} = error ->
+            Logger.warning("Failed to update feed: #{inspect(error)}")
+            send_reply(reply_to, %{ok: false, message: "Failed to update feed"})
+        end
+
       :error ->
         Logger.warning("Feed not found for update: #{url}")
         send_reply(reply_to, %{ok: false, message: "Feed not found"})
@@ -172,7 +185,7 @@ defmodule BotArmyFeeds.NATS.Consumer do
     hours = Map.get(payload, "hours", 48)
     limit = Map.get(payload, "limit", 20)
 
-    {:ok, articles} = BotArmyFeeds.Stores.ArticleStore.list_recent(hours, limit)
+    {:ok, articles} = ArticleStore.list_recent(hours, limit)
 
     reply = %{
       "ok" => true,
@@ -237,7 +250,7 @@ defmodule BotArmyFeeds.NATS.Consumer do
       }
     }
 
-    BotArmyRuntime.NATS.Publisher.publish("events.feeds.#{event}", payload)
+    Publisher.publish("events.feeds.#{event}", payload)
   end
 
   defp send_reply(nil, _payload) do
@@ -245,7 +258,7 @@ defmodule BotArmyFeeds.NATS.Consumer do
   end
 
   defp send_reply(reply_to, payload) when is_binary(reply_to) do
-    case BotArmyRuntime.NATS.Publisher.publish(reply_to, payload) do
+    case Publisher.publish(reply_to, payload) do
       :ok -> :ok
       {:error, reason} -> Logger.warning("Failed to send reply: #{inspect(reason)}")
     end

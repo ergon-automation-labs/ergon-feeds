@@ -56,7 +56,8 @@ defmodule BotArmyFeeds.GenBot do
 
       require Logger
 
-      alias BotArmyFeeds.{SkillLoader, SkillExecutor}
+      alias BotArmyFeeds.SkillExecutor
+      alias BotArmyFeeds.SkillLoader
 
       @bot_id unquote(bot_id)
       @skills_dir unquote(skills_dir)
@@ -67,10 +68,8 @@ defmodule BotArmyFeeds.GenBot do
       end
 
       def init(_init_arg) do
-        Logger.info("[#{@bot_id}] Starting GenBot",
-          bot_id: @bot_id,
-          skills_dir: @skills_dir,
-          jobs_dir: @jobs_dir
+        Logger.info(
+          "[#{@bot_id}] Starting GenBot (skills_dir=#{@skills_dir}, jobs_dir=#{@jobs_dir})"
         )
 
         skills = load_all_skills()
@@ -86,26 +85,26 @@ defmodule BotArmyFeeds.GenBot do
         {:ok, state, {:continue, :connect}}
       end
 
+      alias BotArmyRuntime.NATS.Connection
+
       def handle_continue(:connect, state) do
-        try do
-          result = GenServer.call(BotArmyRuntime.NATS.Connection, :get_connection, 5000)
+        result = GenServer.call(Connection, :get_connection, 5000)
 
-          case result do
-            {:ok, conn} ->
-              Logger.info("[#{@bot_id}] Connected to NATS")
-              {:noreply, subscribe_to_triggers(state, conn)}
+        case result do
+          {:ok, conn} ->
+            Logger.info("[#{@bot_id}] Connected to NATS")
+            {:noreply, subscribe_to_triggers(state, conn)}
 
-            {:error, reason} ->
-              Logger.warning("[#{@bot_id}] Failed to get connection: #{inspect(reason)}")
-              Process.send_after(self(), :connect_retry, 1000)
-              {:noreply, state}
-          end
-        rescue
-          e ->
-            Logger.warning("[#{@bot_id}] Error getting NATS connection: #{Exception.message(e)}")
+          {:error, reason} ->
+            Logger.warning("[#{@bot_id}] Failed to get connection: #{inspect(reason)}")
             Process.send_after(self(), :connect_retry, 1000)
             {:noreply, state}
         end
+      rescue
+        e ->
+          Logger.warning("[#{@bot_id}] Error getting NATS connection: #{Exception.message(e)}")
+          Process.send_after(self(), :connect_retry, 1000)
+          {:noreply, state}
       end
 
       def handle_info({:msg, %{topic: topic, body: body}}, state) do
