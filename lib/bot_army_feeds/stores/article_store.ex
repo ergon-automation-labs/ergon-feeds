@@ -113,11 +113,13 @@ defmodule BotArmyFeeds.Stores.ArticleStore do
   end
 
   def handle_call({:create, attrs}, _from, state) do
-    with {:ok, article} <- insert_article(attrs) do
-      new_state = %{state | articles: Map.put(state.articles, article.id, article)}
-      {:reply, {:ok, article}, new_state}
-    else
-      error -> {:reply, error, state}
+    case insert_article(attrs) do
+      {:ok, article} ->
+        new_state = %{state | articles: Map.put(state.articles, article.id, article)}
+        {:reply, {:ok, article}, new_state}
+
+      error ->
+        {:reply, error, state}
     end
   end
 
@@ -209,15 +211,12 @@ defmodule BotArmyFeeds.Stores.ArticleStore do
   end
 
   defp insert_article(attrs) do
-    with {:ok, article} <- Article.changeset(%Article{}, attrs) |> Repo.insert() do
-      {:ok, article}
-    end
+    Article.changeset(%Article{}, attrs) |> Repo.insert()
   end
 
   defp update_article(article_id, attrs) do
-    with {:ok, article} <- Repo.get(Article, article_id),
-         {:ok, article} <- Article.changeset(article, attrs) |> Repo.update() do
-      {:ok, article}
+    with {:ok, article} <- Repo.get(Article, article_id) do
+      Article.changeset(article, attrs) |> Repo.update()
     end
   end
 end

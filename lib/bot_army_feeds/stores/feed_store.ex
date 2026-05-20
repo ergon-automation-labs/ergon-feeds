@@ -110,11 +110,13 @@ defmodule BotArmyFeeds.Stores.FeedStore do
   end
 
   def handle_call({:create, attrs}, _from, state) do
-    with {:ok, feed} <- insert_feed(attrs) do
-      new_state = %{state | feeds: Map.put(state.feeds, feed.id, feed)}
-      {:reply, {:ok, feed}, new_state}
-    else
-      error -> {:reply, error, state}
+    case insert_feed(attrs) do
+      {:ok, feed} ->
+        new_state = %{state | feeds: Map.put(state.feeds, feed.id, feed)}
+        {:reply, {:ok, feed}, new_state}
+
+      error ->
+        {:reply, error, state}
     end
   end
 
@@ -124,11 +126,13 @@ defmodule BotArmyFeeds.Stores.FeedStore do
         {:reply, {:error, :not_found}, state}
 
       _ ->
-        with {:ok, feed} <- update_feed(feed_id, attrs) do
-          new_state = %{state | feeds: Map.put(state.feeds, feed_id, feed)}
-          {:reply, {:ok, feed}, new_state}
-        else
-          error -> {:reply, error, state}
+        case update_feed(feed_id, attrs) do
+          {:ok, feed} ->
+            new_state = %{state | feeds: Map.put(state.feeds, feed_id, feed)}
+            {:reply, {:ok, feed}, new_state}
+
+          error ->
+            {:reply, error, state}
         end
     end
   end
@@ -161,14 +165,15 @@ defmodule BotArmyFeeds.Stores.FeedStore do
         {:reply, {:error, :not_found}, state}
 
       _feed ->
-        with {:ok, updated_feed} <-
-               Feed
-               |> Ecto.Changeset.change(%{enabled: status})
-               |> Repo.update() do
-          new_state = %{state | feeds: Map.put(state.feeds, feed_id, updated_feed)}
-          {:reply, {:ok, updated_feed}, new_state}
-        else
-          error -> {:reply, error, state}
+        case Feed
+             |> Ecto.Changeset.change(%{enabled: status})
+             |> Repo.update() do
+          {:ok, updated_feed} ->
+            new_state = %{state | feeds: Map.put(state.feeds, feed_id, updated_feed)}
+            {:reply, {:ok, updated_feed}, new_state}
+
+          error ->
+            {:reply, error, state}
         end
     end
   end
@@ -193,15 +198,12 @@ defmodule BotArmyFeeds.Stores.FeedStore do
   end
 
   defp insert_feed(attrs) do
-    with {:ok, feed} <- Feed.changeset(%Feed{}, attrs) |> Repo.insert() do
-      {:ok, feed}
-    end
+    Feed.changeset(%Feed{}, attrs) |> Repo.insert()
   end
 
   defp update_feed(feed_id, attrs) do
-    with {:ok, feed} <- Repo.get(Feed, feed_id),
-         {:ok, feed} <- Feed.changeset(feed, attrs) |> Repo.update() do
-      {:ok, feed}
+    with {:ok, feed} <- Repo.get(Feed, feed_id) do
+      Feed.changeset(feed, attrs) |> Repo.update()
     end
   end
 end
