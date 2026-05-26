@@ -24,3 +24,7 @@ Thumbs.db
 # Build artifacts
 _build/
 .elixir_ls/
+
+# Build artifacts
+*.tar.gz
+*.tar.xz
