@@ -67,7 +67,11 @@ defmodule BotArmyFeeds.NATS.Consumer do
         ]
 
         Logger.info("Subscribed to feed management subjects")
-        Registry.register("feeds", @subjects, @version)
+
+        deployment_status =
+          Application.get_env(:bot_army_feeds, :deployment_status, "experimental")
+
+        Registry.register("feeds", @subjects, @version, deployment_status)
         Process.send_after(self(), :registry_heartbeat, @registry_heartbeat_ms)
 
         {:ok,
