@@ -3,7 +3,7 @@ defmodule BotArmyFeeds.NATS.Publisher do
   NATS publisher for bot_army_feeds events.
   """
 
-  alias BotArmyRuntime.NATS.Publisher
+  alias BotArmyLibraryRuntime.NATS.Publisher
 
   @doc """
   Publish article ingested event.

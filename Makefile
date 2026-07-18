@@ -1,7 +1,7 @@
 SCRIPTS_DIRECTORY ?= $(abspath $(CURDIR)/../scripts)
 MIX ?= /Users/abby/.local/share/mise/shims/mix
 
-.PHONY: setup help deps test credo dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs feeds push-and-publish
+.PHONY: setup help deps test credo dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs feeds push-and-publish bump-version
 
 help:
 	@echo "bot_army_feeds"
@@ -67,8 +67,20 @@ reset-db:
 init:
 	@if [ ! -d .git ]; then git init; echo "Git initialized."; else echo "Git already initialized."; fi
 
+compile:
+	@LOG_FILE="/tmp/compile-feeds-$$(date +%s).log"; \
+	echo "Compiling feeds and logging to $$LOG_FILE..."; \
+	$(MIX) compile 2>&1 | tee "$$LOG_FILE"; \
+	echo "✓ Compilation log: $$LOG_FILE"
+
 deps:
 	$(MIX) deps.get
+
+compile:
+	@LOG_FILE="/tmp/compile-feeds-$$(date +%s).log"; \
+	echo "Compiling feeds and logging to $$LOG_FILE..."; \
+	$(MIX) compile 2>&1 | tee "$$LOG_FILE"; \
+	echo "✓ Compilation log: $$LOG_FILE"
 
 test:
 	$(MIX) test
@@ -155,3 +167,10 @@ remove-feed:
 poll-feeds:
 	@echo "Triggering feed poll..."
 	nats request --server nats://localhost:4223 feeds.poll '{}' --timeout 3s
+
+bump-version:
+	@if [ -z "$(BUMP)" ]; then echo "Usage: make bump-version BUMP=major|minor|patch"; exit 1; fi
+	@OLD=$$(grep 'version:' mix.exs | head -1 | sed -E 's/.*version: "([^"]+)".*/\1/'); \
+	bash $(SCRIPTS_DIRECTORY)/bump_version.sh mix.exs $(BUMP) > /dev/null; \
+	NEW=$$(grep 'version:' mix.exs | head -1 | sed -E 's/.*version: "([^"]+)".*/\1/'); \
+	echo "✓ Bumped: $$OLD → $$NEW"

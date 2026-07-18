@@ -19,14 +19,14 @@ defmodule BotArmyFeeds.NATS.Consumer do
   use GenServer
   require Logger
 
-  alias BotArmyCore.NATS.Decoder
+  alias BotArmyLibraryCore.NATS.Decoder
   alias BotArmyFeeds.Handlers.ResearchHandler
   alias BotArmyFeeds.Stores.ArticleStore
   alias BotArmyFeeds.Stores.FeedStore
-  alias BotArmyRuntime.NATS.Connection
-  alias BotArmyRuntime.NATS.Publisher
-  alias BotArmyRuntime.Registry
-  alias BotArmyRuntime.Tracing
+  alias BotArmyLibraryRuntime.NATS.Connection
+  alias BotArmyLibraryRuntime.NATS.Publisher
+  alias BotArmyLibraryRuntime.Registry
+  alias BotArmyLibraryRuntime.Tracing
 
   @version Mix.Project.config()[:version]
   @registry_heartbeat_ms 20_000

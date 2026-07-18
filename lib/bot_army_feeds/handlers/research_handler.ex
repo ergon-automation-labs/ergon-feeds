@@ -57,7 +57,7 @@ defmodule BotArmyFeeds.Handlers.ResearchHandler do
               }
             }
 
-            BotArmyRuntime.NATS.Publisher.publish("llm.inference.chain", payload)
+            BotArmyLibraryRuntime.NATS.Publisher.publish("llm.inference.chain", payload)
             ArticleStore.update_research_status(article_id, :processing, "")
 
           {:error, _} ->
@@ -105,7 +105,7 @@ defmodule BotArmyFeeds.Handlers.ResearchHandler do
             }
           }
 
-          BotArmyRuntime.NATS.Publisher.publish("events.feeds.topic.discovered", payload)
+          BotArmyLibraryRuntime.NATS.Publisher.publish("events.feeds.topic.discovered", payload)
         end)
 
         Publisher.publish_researched(

@@ -85,7 +85,7 @@ defmodule BotArmyFeeds.GenBot do
         {:ok, state, {:continue, :connect}}
       end
 
-      alias BotArmyRuntime.NATS.Connection
+      alias BotArmyLibraryRuntime.NATS.Connection
 
       def handle_continue(:connect, state) do
         result = GenServer.call(Connection, :get_connection, 5000)
