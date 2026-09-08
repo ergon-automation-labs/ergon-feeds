@@ -36,22 +36,21 @@ defmodule BotArmyFeeds.Repo.Migrations.AddTenantAndUserId do
   end
 
   def down do
-    # Drop indexes and columns for feeds
-    drop(index(:feeds, [:tenant_id])) if Ecto.Migration.index_exists?(:feeds, [:tenant_id])
-    drop(index(:feeds, [:user_id])) if Ecto.Migration.index_exists?(:feeds, [:user_id])
+    for table <- [:feeds, :articles] do
+      if Ecto.Migration.index_exists?(table, [:tenant_id]) do
+        drop(index(table, [:tenant_id]))
+      end
 
-    alter table(:feeds) do
-      remove(:tenant_id) if Ecto.Migration.column_exists?(:feeds, :tenant_id)
-      remove(:user_id) if Ecto.Migration.column_exists?(:feeds, :user_id)
-    end
+      if Ecto.Migration.index_exists?(table, [:user_id]) do
+        drop(index(table, [:user_id]))
+      end
 
-    # Drop indexes and columns for articles
-    drop(index(:articles, [:tenant_id])) if Ecto.Migration.index_exists?(:articles, [:tenant_id])
-    drop(index(:articles, [:user_id])) if Ecto.Migration.index_exists?(:articles, [:user_id])
-
-    alter table(:articles) do
-      remove(:tenant_id) if Ecto.Migration.column_exists?(:articles, :tenant_id)
-      remove(:user_id) if Ecto.Migration.column_exists?(:articles, :user_id)
+      if Ecto.Migration.column_exists?(table, :tenant_id) do
+        alter table(table) do
+          remove(:tenant_id)
+          remove(:user_id)
+        end
+      end
     end
   end
 end
