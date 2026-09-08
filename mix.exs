@@ -9,7 +9,7 @@ defmodule BotArmyFeeds.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       releases: [
-        bot_army_feeds: [
+        feeds_bot: [
           applications: [bot_army_feeds: :permanent]
         ]
       ]
