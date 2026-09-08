@@ -13,6 +13,10 @@ defmodule BotArmyFeeds.Application do
 
   @impl true
   def start(_type, _args) do
+    # APPEND order = start order: the Repo must come FIRST — ArticleStore's
+    # init queries it, and the old prepend chain put Repo last (RERUN13:
+    # "could not lookup Ecto repo BotArmyFeeds.Repo because it was not
+    # started", ArticleStore.init → load_all).
     children =
       []
       |> maybe_add_repo()
@@ -27,23 +31,23 @@ defmodule BotArmyFeeds.Application do
   end
 
   defp maybe_add_repo(children) do
-    if @env == :test, do: children, else: [BotArmyFeeds.Repo | children]
+    if @env == :test, do: children, else: children ++ [BotArmyFeeds.Repo]
   end
 
   defp maybe_add_feed_store(children) do
-    if @env == :test, do: children, else: [{BotArmyFeeds.Stores.FeedStore, []} | children]
+    if @env == :test, do: children, else: children ++ [{BotArmyFeeds.Stores.FeedStore, []}]
   end
 
   defp maybe_add_article_store(children) do
-    if @env == :test, do: children, else: [{BotArmyFeeds.Stores.ArticleStore, []} | children]
+    if @env == :test, do: children, else: children ++ [{BotArmyFeeds.Stores.ArticleStore, []}]
   end
 
   defp maybe_add_poller(children) do
-    if @env == :test, do: children, else: [{BotArmyFeeds.Poller, []} | children]
+    if @env == :test, do: children, else: children ++ [{BotArmyFeeds.Poller, []}]
   end
 
   defp maybe_add_consumer(children) do
-    if @env == :test, do: children, else: [{BotArmyFeeds.NATS.Consumer, []} | children]
+    if @env == :test, do: children, else: children ++ [{BotArmyFeeds.NATS.Consumer, []}]
   end
 
   defp maybe_add_gen_bot(children) do
