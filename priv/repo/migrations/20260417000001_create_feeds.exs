@@ -8,7 +8,7 @@ defmodule BotArmyFeeds.Repo.Migrations.CreateFeeds do
       add(:category, :string)
       add(:tags, :text)
       add(:enabled, :boolean, default: true, null: false)
-      add(:last_polled, :datetime)
+      add(:last_polled, :utc_datetime)
       add(:error_count, :integer, default: 0, null: false)
 
       timestamps()
