@@ -1,7 +1,7 @@
 SCRIPTS_DIRECTORY ?= $(abspath $(CURDIR)/../scripts)
 MIX ?= /Users/abby/.local/share/mise/shims/mix
 
-.PHONY: setup help deps test credo dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs feeds push-and-publish bump-version
+.PHONY: setup help deps test dialyzer coverage check format clean release publish-release setup-hooks setup-db reset-db logs feeds push-and-publish
 
 help:
 	@echo "bot_army_feeds"
@@ -76,17 +76,8 @@ _compile-impl:
 deps:
 	$(MIX) deps.get
 
-_compile-impl:
-	@LOG_FILE="/tmp/compile-feeds-$$(date +%s).log"; \
-	echo "Compiling feeds and logging to $$LOG_FILE..."; \
-	$(MIX) compile 2>&1 | tee "$$LOG_FILE"; \
-	echo "✓ Compilation log: $$LOG_FILE"
-
 test:
 	$(MIX) test
-
-credo:
-	$(MIX) credo --only warning
 
 dialyzer: deps
 	$(MIX) dialyzer
@@ -168,22 +159,6 @@ poll-feeds:
 	@echo "Triggering feed poll..."
 	nats request --server nats://localhost:4223 feeds.poll '{}' --timeout 3s
 
-bump-version:
-	@if [ -z "$(BUMP)" ]; then echo "Usage: make bump-version BUMP=major|minor|patch"; exit 1; fi
-	@OLD=$$(grep 'version:' mix.exs | head -1 | sed -E 's/.*version: "([^"]+)".*/\1/'); \
-	bash $(SCRIPTS_DIRECTORY)/bump_version.sh mix.exs $(BUMP) > /dev/null; \
-	NEW=$$(grep 'version:' mix.exs | head -1 | sed -E 's/.*version: "([^"]+)".*/\1/'); \
-	echo "✓ Bumped: $$OLD → $$NEW"
-
-push: test compile credo
-	@echo "✅ All validations passed"
-	@echo "$$(date +%s)" > .push-validated
-	@echo "✓ Proof-of-validation created"
-	@$(MAKE) git-push
-
-
-git-push:
-	@git push origin main 2>&1 | tail -3
 
 # Shared targets (push, credo, pre-push-cleanup, bump-version, git-push).
 # Defined once in bot_army_infra so they cannot drift per repo.
