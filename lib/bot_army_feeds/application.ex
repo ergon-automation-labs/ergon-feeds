@@ -47,6 +47,9 @@ defmodule BotArmyFeeds.Application do
   end
 
   defp maybe_add_gen_bot(children) do
-    if @env == :test, do: children, else: [{BotArmyFeeds.GenBot, []} | children]
+    # GenBot is a __using__ macro module (no child_spec/1) — the concrete
+    # instance below is what carries the generated GenServer + child_spec.
+    # See GenBotInstance's moduledoc (phase-04 pack matrix crash, 2026-09-08).
+    if @env == :test, do: children, else: [{BotArmyFeeds.GenBotInstance, []} | children]
   end
 end
