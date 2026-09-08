@@ -1,55 +1,51 @@
 defmodule BotArmyFeeds.Repo.Migrations.AddTenantAndUserId do
+  @moduledoc """
+  Adds tenant_id/user_id to feeds and articles.
+
+  Unconditional (no column_exists?/index_exists? guards): Ecto.Migration
+  has no such introspection functions in the pinned ecto 3.13.x — the
+  guards were undefined at runtime (RERUN13, 2026-09-08). Idempotency is
+  provided by Ecto's own schema_migrations bookkeeping instead.
+  """
+
   use Ecto.Migration
 
+  @default_tenant_id "00000000-0000-0000-0000-000000000001"
+
   def up do
-    default_tenant_id = "00000000-0000-0000-0000-000000000001"
-
-    # Add tenant_id and user_id to feeds (idempotent)
-    unless Ecto.Migration.column_exists?(:feeds, :tenant_id) do
-      alter table(:feeds) do
-        add(:tenant_id, :uuid, null: true)
-        add(:user_id, :uuid, null: true)
-      end
-
-      create(index(:feeds, [:tenant_id]))
-      create(index(:feeds, [:user_id]))
-
-      execute(
-        "UPDATE feeds SET tenant_id = '#{default_tenant_id}'::uuid WHERE tenant_id IS NULL"
-      )
+    alter table(:feeds) do
+      add(:tenant_id, :uuid, null: true)
+      add(:user_id, :uuid, null: true)
     end
 
-    # Add tenant_id and user_id to articles (idempotent)
-    unless Ecto.Migration.column_exists?(:articles, :tenant_id) do
-      alter table(:articles) do
-        add(:tenant_id, :uuid, null: true)
-        add(:user_id, :uuid, null: true)
-      end
+    create(index(:feeds, [:tenant_id]))
+    create(index(:feeds, [:user_id]))
 
-      create(index(:articles, [:tenant_id]))
-      create(index(:articles, [:user_id]))
+    execute(
+      "UPDATE feeds SET tenant_id = '#{@default_tenant_id}'::uuid WHERE tenant_id IS NULL"
+    )
 
-      execute(
-        "UPDATE articles SET tenant_id = '#{default_tenant_id}'::uuid WHERE tenant_id IS NULL"
-      )
+    alter table(:articles) do
+      add(:tenant_id, :uuid, null: true)
+      add(:user_id, :uuid, null: true)
     end
+
+    create(index(:articles, [:tenant_id]))
+    create(index(:articles, [:user_id]))
+
+    execute(
+      "UPDATE articles SET tenant_id = '#{@default_tenant_id}'::uuid WHERE tenant_id IS NULL"
+    )
   end
 
   def down do
     for table <- [:feeds, :articles] do
-      if Ecto.Migration.index_exists?(table, [:tenant_id]) do
-        drop(index(table, [:tenant_id]))
-      end
+      drop(index(table, [:tenant_id]))
+      drop(index(table, [:user_id]))
 
-      if Ecto.Migration.index_exists?(table, [:user_id]) do
-        drop(index(table, [:user_id]))
-      end
-
-      if Ecto.Migration.column_exists?(table, :tenant_id) do
-        alter table(table) do
-          remove(:tenant_id)
-          remove(:user_id)
-        end
+      alter table(table) do
+        remove(:tenant_id)
+        remove(:user_id)
       end
     end
   end

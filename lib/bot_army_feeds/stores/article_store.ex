@@ -88,7 +88,7 @@ defmodule BotArmyFeeds.Stores.ArticleStore do
   def init(_opts) do
     Logger.info("ArticleStore starting...")
     articles = load_all()
-    Logger.info("Loaded #{length(articles)} article(s)")
+    Logger.info("Loaded #{map_size(articles)} article(s)")
     {:ok, %{articles: articles}}
   end
 
